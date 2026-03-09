@@ -2,13 +2,25 @@ import streamlit as st
 import pandas as pd
 import joblib
 
-# Load model
-model = joblib.load("model/random_forest.pkl")
-
-# Load climate data
-climate_df = pd.read_csv("data/climate.csv")
-
 st.set_page_config(page_title="GreenPredict-AI", layout="centered")
+
+# # Load model
+# model = joblib.load("model/random_forest.pkl")
+
+# # Load climate data
+# climate_df = pd.read_csv("data/climate.csv")
+
+# replaced bcoz of UI lagging
+@st.cache_resource
+def load_model():
+    return joblib.load("model/random_forest.pkl")
+model = load_model()
+
+
+@st.cache_data
+def load_climate():
+    return pd.read_csv("data/climate.csv")
+climate_df = load_climate()
 
 st.title("🌱 GreenPredict-AI")
 st.subheader("AI-Based Plant Survival Prediction System")
