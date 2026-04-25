@@ -1,0 +1,187 @@
+/* ─── Hero ─────────────────────────────────────────── */
+.hero {
+  background: var(--bg-hero);
+  min-height: 62vh;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  padding: 5rem 2rem 4rem;
+}
+
+.hero__bg-leaf {
+  position: absolute;
+  right: -60px;
+  top: -60px;
+  width: 55%;
+  max-width: 520px;
+  opacity: 1;
+  pointer-events: none;
+}
+
+.hero__content {
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+  max-width: 640px;
+}
+
+.hero__title {
+  font-family: var(--font-sans);
+  font-size: clamp(2rem, 4.5vw, 3.2rem);
+  font-weight: 700;
+  color: var(--text-white);
+  line-height: 1.18;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.4rem;
+}
+
+.hero__subtitle {
+  font-size: 1.03rem;
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.7;
+  max-width: 520px;
+  margin-bottom: 2.2rem;
+}
+
+.hero__image-side {
+  position: absolute;
+  right: 8%;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.hero__leaf-anim {
+  font-size: 7rem;
+  animation: leafFloat 4s ease-in-out infinite;
+  filter: drop-shadow(0 8px 32px rgba(0,0,0,0.18));
+  opacity: 0.65;
+}
+
+/* ─── Buttons ─────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  border: 2px solid transparent;
+  white-space: nowrap;
+}
+
+.btn--primary {
+  background: var(--green-500);
+  color: #fff;
+  border-color: var(--green-500);
+}
+.btn--primary:hover {
+  background: var(--green-400);
+  border-color: var(--green-400);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(45, 106, 53, 0.35);
+}
+
+.btn--outline {
+  background: transparent;
+  color: var(--green-700);
+  border-color: var(--green-300);
+}
+.btn--outline:hover {
+  background: var(--green-50);
+  border-color: var(--green-500);
+}
+
+.btn--sm  { padding: 8px 18px;  font-size: 0.88rem; border-radius: var(--radius-sm); }
+.btn--md  { padding: 11px 24px; font-size: 0.96rem; }
+.btn--lg  { padding: 15px 36px; font-size: 1.03rem; }
+.btn--full { width: 100%; }
+
+/* ─── Factors ─────────────────────────────────────── */
+.factors {
+  background: var(--bg-primary);
+  padding: 3rem 2rem 4rem;
+  display: flex;
+  justify-content: center;
+}
+
+.factors__card {
+  background: var(--bg-card);
+  border-radius: var(--radius-xl);
+  padding: 2.6rem 2.8rem;
+  max-width: 900px;
+  width: 100%;
+  box-shadow: var(--shadow-card);
+  border: 1.5px solid var(--border-light);
+}
+
+.factors__heading {
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--green-800);
+  margin-bottom: 2.2rem;
+  letter-spacing: -0.015em;
+}
+
+.factors__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.2rem;
+}
+
+.factor-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.factor-item__icon {
+  width: 68px;
+  height: 68px;
+  background: var(--green-100);
+  color: var(--green-600);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--transition), background var(--transition);
+}
+.factor-item:hover .factor-item__icon {
+  transform: scale(1.08);
+  background: var(--green-200);
+}
+
+.factor-item__label {
+  font-weight: 600;
+  color: var(--green-700);
+  font-size: 1rem;
+}
+
+.factor-item__sub {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+/* ─── Responsive ─────────────────────────────────── */
+@media (max-width: 900px) {
+  .factors__grid { grid-template-columns: repeat(2, 1fr); gap: 1.5rem 1.2rem; }
+}
+
+@media (max-width: 640px) {
+  .hero { padding: 4rem 1.3rem 3rem; min-height: auto; }
+  .hero__image-side { display: none; }
+  .hero__title { font-size: 1.8rem; }
+  .factors { padding: 2rem 1rem; }
+  .factors__card { padding: 1.8rem 1.3rem; }
+  .factors__grid { grid-template-columns: repeat(2, 1fr); }
+  .factors__heading { font-size: 1.2rem; }
+}
