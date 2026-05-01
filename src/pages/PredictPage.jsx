@@ -1,17 +1,56 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { cities, soilTypes, plantNames } from "../data/plants";
-import { simulatePrediction, getCityClimate } from "../api/predict";
+import { predictSurvival, getCityClimate } from "../api/predict";
 import "./PredictPage.css";
 
+// ---------------------------------------------------------------------------
+// Validation config — must match flask_api.py VALID_RANGES exactly
+// ---------------------------------------------------------------------------
+const NUMERIC_RULES = {
+  pH:             { lo: 0,   hi: 10,  label: "pH",             msg: "pH must be between 0 and 10" },
+  nitrogen:       { lo: 0,   hi: 700, label: "Nitrogen",       msg: "Nitrogen must be between 0 and 700" },
+  phosphorus:     { lo: 0,   hi: 60,  label: "Phosphorus",     msg: "Phosphorus must be between 0 and 60" },
+  potassium:      { lo: 0,   hi: 400, label: "Potassium",      msg: "Potassium must be between 0 and 400" },
+  organic_carbon: { lo: 0,   hi: 2,   label: "Organic Carbon", msg: "Organic Carbon must be between 0 and 2" },
+  ec:             { lo: 0,   hi: 4,   label: "EC",             msg: "EC must be between 0 and 4" },
+};
+
+const NUMERIC_FIELDS = Object.keys(NUMERIC_RULES);
+
+// ---------------------------------------------------------------------------
+// Pure validation — returns per-field error strings
+// ---------------------------------------------------------------------------
+function validateField(name, value) {
+  if (NUMERIC_FIELDS.includes(name)) {
+    if (value === "" || value === null || value === undefined) return "This field is required";
+    const num = parseFloat(value);
+    if (isNaN(num)) return "Must be a valid number";
+    const { lo, hi, msg } = NUMERIC_RULES[name];
+    if (num < lo || num > hi) return msg;
+    return "";
+  }
+  if (name === "city")      return value ? "" : "Please select a city";
+  if (name === "soil_type") return value ? "" : "Please select a soil type";
+  if (name === "tree")      return value ? "" : "Please select a tree";
+  return "";
+}
+
+function validateAll(form) {
+  const errs = {};
+  [...NUMERIC_FIELDS, "city", "soil_type", "tree"].forEach((name) => {
+    const msg = validateField(name, form[name]);
+    if (msg) errs[name] = msg;
+  });
+  return errs;
+}
+
+// ---------------------------------------------------------------------------
+// Initial state
+// ---------------------------------------------------------------------------
 const initialForm = {
-  city: "",
-  soil_type: "",
-  pH: "",
-  nitrogen: "",
-  phosphorus: "",
-  potassium: "",
-  organic_carbon: "",
-  ec: "",
+  city: "", soil_type: "",
+  pH: "", nitrogen: "", phosphorus: "",
+  potassium: "", organic_carbon: "", ec: "",
   tree: "",
 };
 
@@ -19,66 +58,90 @@ const tips = [
   "Select your city to auto-populate rainfall and temperature data",
   "Choose the specific tree you plan to plant to get its survival prediction",
   "Ensure all measurements are accurate for best predictions",
-  "pH values typically range from 6.0 (acidic) to 8.0 (alkaline)",
+  "pH values must be between 0 and 10 (typical soil: 6.0–8.0)",
   "Use soil testing kits for precise NPK and EC values",
 ];
 
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 export default function PredictPage({ onNavigate, onResults }) {
-  const [form, setForm] = useState(initialForm);
+  const [form,    setForm]    = useState(initialForm);
+  const [touched, setTouched] = useState({});   // tracks which fields have been blurred
+  const [errors,  setErrors]  = useState({});   // per-field error strings (shown only for touched)
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState({});
+  const [apiError, setApiError] = useState("");
 
-  const update = (field, val) => {
+  // ── onChange: update value, clear error for that field, NO validation yet ──
+  const handleChange = useCallback((field, val) => {
     setForm((f) => ({ ...f, [field]: val }));
-    setErrors((e) => ({ ...e, [field]: "" }));
-  };
+    // If already touched, re-validate on change so feedback clears as soon as valid
+    setTouched((t) => {
+      if (t[field]) {
+        setErrors((e) => ({ ...e, [field]: validateField(field, val) }));
+      }
+      return t;
+    });
+    setApiError("");
+  }, []);
 
-  const validate = () => {
-    const errs = {};
-    if (!form.city)         errs.city = "Please select a city";
-    if (!form.soil_type)    errs.soil_type = "Please select soil type";
-    if (!form.pH)           errs.pH = "Required";
-    if (!form.nitrogen)     errs.nitrogen = "Required";
-    if (!form.phosphorus)   errs.phosphorus = "Required";
-    if (!form.potassium)    errs.potassium = "Required";
-    if (!form.organic_carbon) errs.organic_carbon = "Required";
-    if (!form.ec)           errs.ec = "Required";
-    if (!form.tree)         errs.tree = "Please select a tree";
-    return errs;
-  };
+  // ── onBlur: mark touched and validate that single field ──
+  const handleBlur = useCallback((field) => {
+    setTouched((t) => ({ ...t, [field]: true }));
+    setErrors((e) => ({ ...e, [field]: validateField(field, form[field]) }));
+  }, [form]);
 
+  // ── Derived: is the whole form valid (used to disable the button) ──
+  const allErrors = validateAll(form);
+  const isFormValid = Object.keys(allErrors).length === 0;
+
+  // ── Visible errors: only show for touched fields ──
+  const visibleErrors = {};
+  Object.keys(errors).forEach((k) => {
+    if (touched[k]) visibleErrors[k] = errors[k];
+  });
+
+  // ── Submit ──
   const handleSubmit = async () => {
-    const errs = validate();
-    if (Object.keys(errs).length) { setErrors(errs); return; }
+    // On submit, mark everything touched and show all errors
+    const allFields = [...NUMERIC_FIELDS, "city", "soil_type", "tree"];
+    const touchAll = {};
+    allFields.forEach((f) => { touchAll[f] = true; });
+    setTouched(touchAll);
+
+    const errs = validateAll(form);
+    setErrors(errs);
+    setApiError("");
+
+    if (Object.keys(errs).length) return;   // stop — show inline errors
 
     setLoading(true);
     const climate = getCityClimate(form.city);
     const payload = {
-      pH: parseFloat(form.pH),
-      nitrogen: parseFloat(form.nitrogen),
-      phosphorus: parseFloat(form.phosphorus),
-      potassium: parseFloat(form.potassium),
+      pH:             parseFloat(form.pH),
+      nitrogen:       parseFloat(form.nitrogen),
+      phosphorus:     parseFloat(form.phosphorus),
+      potassium:      parseFloat(form.potassium),
       organic_carbon: parseFloat(form.organic_carbon),
-      ec: parseFloat(form.ec),
-      rainfall: climate.rainfall,
-      temperature: climate.avg_temp,
-      soil_type: form.soil_type,
+      ec:             parseFloat(form.ec),
+      rainfall:       climate.rainfall,
+      temperature:    climate.avg_temp,
+      soil_type:      form.soil_type,
     };
 
-    // Slight delay to show loading state
-    await new Promise((r) => setTimeout(r, 900));
-    const result = simulatePrediction(payload);
-
-    setLoading(false);
-    onResults({
-      ...result,
-      selectedTree: form.tree,
-      city: form.city,
-      climate,
-      soilData: payload,
-    });
-    onNavigate("results");
+    try {
+      const result = await predictSurvival(payload);
+      setLoading(false);
+      onResults({ ...result, selectedTree: form.tree, city: form.city, climate, soilData: payload });
+      onNavigate("results");
+    } catch (err) {
+      setLoading(false);
+      setApiError(err.message || "Prediction failed. Please check your inputs and try again.");
+    }
   };
+
+  // ── Helper: visible error for a field ──
+  const fieldError = (name) => (touched[name] ? errors[name] || "" : "");
 
   return (
     <div className="predict">
@@ -98,107 +161,179 @@ export default function PredictPage({ onNavigate, onResults }) {
           </p>
         </div>
 
+        {/* API / network error banner */}
+        {apiError && (
+          <div className="api-error-banner" role="alert">
+            <strong>&#9888; Error:</strong> {apiError}
+          </div>
+        )}
+
         <div className="predict__form-card animate-scaleIn delay-1">
           <div className="form-grid">
+
             {/* City */}
-            <div className={`form-group ${errors.city ? "form-group--error" : ""}`}>
-              <label className="form-label">City/Location</label>
-              <select className="form-select" value={form.city} onChange={(e) => update("city", e.target.value)}>
+            <div className={`form-group ${fieldError("city") ? "form-group--error" : ""}`}>
+              <label className="form-label">City / Location</label>
+              <select
+                className="form-select"
+                value={form.city}
+                onChange={(e) => handleChange("city", e.target.value)}
+                onBlur={() => handleBlur("city")}
+              >
                 <option value="">Select city</option>
                 {cities.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
               </select>
-              {errors.city && <span className="form-error">{errors.city}</span>}
+              {fieldError("city") && <span className="form-error">{fieldError("city")}</span>}
             </div>
 
             {/* Potassium */}
-            <div className={`form-group ${errors.potassium ? "form-group--error" : ""}`}>
-              <label className="form-label">Potassium (K) – kg/ha</label>
-              <input className="form-input" type="number" placeholder="e.g., 200"
-                value={form.potassium} onChange={(e) => update("potassium", e.target.value)} />
-              {errors.potassium && <span className="form-error">{errors.potassium}</span>}
+            <div className={`form-group ${fieldError("potassium") ? "form-group--error" : ""}`}>
+              <label className="form-label">Potassium (K) – kg/ha <span className="form-hint">(0–400)</span></label>
+              <input
+                className="form-input"
+                type="number"
+                placeholder="e.g., 200"
+                value={form.potassium}
+                onChange={(e) => handleChange("potassium", e.target.value)}
+                onBlur={() => handleBlur("potassium")}
+              />
+              {fieldError("potassium") && <span className="form-error">{fieldError("potassium")}</span>}
             </div>
 
             {/* Soil Type */}
-            <div className={`form-group ${errors.soil_type ? "form-group--error" : ""}`}>
+            <div className={`form-group ${fieldError("soil_type") ? "form-group--error" : ""}`}>
               <label className="form-label">Soil Type</label>
-              <select className="form-select" value={form.soil_type} onChange={(e) => update("soil_type", e.target.value)}>
+              <select
+                className="form-select"
+                value={form.soil_type}
+                onChange={(e) => handleChange("soil_type", e.target.value)}
+                onBlur={() => handleBlur("soil_type")}
+              >
                 <option value="">Select soil type</option>
                 {soilTypes.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
-              {errors.soil_type && <span className="form-error">{errors.soil_type}</span>}
+              {fieldError("soil_type") && <span className="form-error">{fieldError("soil_type")}</span>}
             </div>
 
             {/* Organic Carbon */}
-            <div className={`form-group ${errors.organic_carbon ? "form-group--error" : ""}`}>
-              <label className="form-label">Organic Carbon (%)</label>
-              <input className="form-input" type="number" step="0.1" placeholder="e.g., 0.8"
-                value={form.organic_carbon} onChange={(e) => update("organic_carbon", e.target.value)} />
-              {errors.organic_carbon && <span className="form-error">{errors.organic_carbon}</span>}
+            <div className={`form-group ${fieldError("organic_carbon") ? "form-group--error" : ""}`}>
+              <label className="form-label">Organic Carbon (%) <span className="form-hint">(0–2)</span></label>
+              <input
+                className="form-input"
+                type="number"
+                step="0.01"
+                placeholder="e.g., 0.8"
+                value={form.organic_carbon}
+                onChange={(e) => handleChange("organic_carbon", e.target.value)}
+                onBlur={() => handleBlur("organic_carbon")}
+              />
+              {fieldError("organic_carbon") && <span className="form-error">{fieldError("organic_carbon")}</span>}
             </div>
 
             {/* pH */}
-            <div className={`form-group ${errors.pH ? "form-group--error" : ""}`}>
-              <label className="form-label">pH Value (0–14)</label>
-              <input className="form-input" type="number" step="0.1" placeholder="e.g., 6.5"
-                value={form.pH} onChange={(e) => update("pH", e.target.value)} />
-              {errors.pH && <span className="form-error">{errors.pH}</span>}
+            <div className={`form-group ${fieldError("pH") ? "form-group--error" : ""}`}>
+              <label className="form-label">pH Value <span className="form-hint">(0–10)</span></label>
+              <input
+                className="form-input"
+                type="number"
+                step="0.1"
+                placeholder="e.g., 6.5"
+                value={form.pH}
+                onChange={(e) => handleChange("pH", e.target.value)}
+                onBlur={() => handleBlur("pH")}
+              />
+              {fieldError("pH") && <span className="form-error">{fieldError("pH")}</span>}
             </div>
 
             {/* EC */}
-            <div className={`form-group ${errors.ec ? "form-group--error" : ""}`}>
-              <label className="form-label">EC (Electrical Conductivity) – dS/m</label>
-              <input className="form-input" type="number" step="0.1" placeholder="e.g., 2.5"
-                value={form.ec} onChange={(e) => update("ec", e.target.value)} />
-              {errors.ec && <span className="form-error">{errors.ec}</span>}
+            <div className={`form-group ${fieldError("ec") ? "form-group--error" : ""}`}>
+              <label className="form-label">EC (Electrical Conductivity) – dS/m <span className="form-hint">(0–4)</span></label>
+              <input
+                className="form-input"
+                type="number"
+                step="0.1"
+                placeholder="e.g., 2.5"
+                value={form.ec}
+                onChange={(e) => handleChange("ec", e.target.value)}
+                onBlur={() => handleBlur("ec")}
+              />
+              {fieldError("ec") && <span className="form-error">{fieldError("ec")}</span>}
             </div>
 
             {/* Nitrogen */}
-            <div className={`form-group ${errors.nitrogen ? "form-group--error" : ""}`}>
-              <label className="form-label">Nitrogen (N) – kg/ha</label>
-              <input className="form-input" type="number" placeholder="e.g., 400"
-                value={form.nitrogen} onChange={(e) => update("nitrogen", e.target.value)} />
-              {errors.nitrogen && <span className="form-error">{errors.nitrogen}</span>}
+            <div className={`form-group ${fieldError("nitrogen") ? "form-group--error" : ""}`}>
+              <label className="form-label">Nitrogen (N) – kg/ha <span className="form-hint">(0–700)</span></label>
+              <input
+                className="form-input"
+                type="number"
+                placeholder="e.g., 400"
+                value={form.nitrogen}
+                onChange={(e) => handleChange("nitrogen", e.target.value)}
+                onBlur={() => handleBlur("nitrogen")}
+              />
+              {fieldError("nitrogen") && <span className="form-error">{fieldError("nitrogen")}</span>}
             </div>
 
             {/* Rainfall (auto) */}
             <div className="form-group">
               <label className="form-label">Rainfall (mm/year)</label>
-              <input className="form-input form-input--auto" type="text" readOnly
+              <input
+                className="form-input form-input--auto"
+                type="text"
+                readOnly
                 value={form.city ? `${getCityClimate(form.city)?.rainfall ?? ""} mm/year` : ""}
-                placeholder="Auto-populated from city" />
+                placeholder="Auto-populated from city"
+              />
             </div>
 
             {/* Phosphorus */}
-            <div className={`form-group ${errors.phosphorus ? "form-group--error" : ""}`}>
-              <label className="form-label">Phosphorus (P) – kg/ha</label>
-              <input className="form-input" type="number" placeholder="e.g., 30"
-                value={form.phosphorus} onChange={(e) => update("phosphorus", e.target.value)} />
-              {errors.phosphorus && <span className="form-error">{errors.phosphorus}</span>}
+            <div className={`form-group ${fieldError("phosphorus") ? "form-group--error" : ""}`}>
+              <label className="form-label">Phosphorus (P) – kg/ha <span className="form-hint">(0–60)</span></label>
+              <input
+                className="form-input"
+                type="number"
+                placeholder="e.g., 30"
+                value={form.phosphorus}
+                onChange={(e) => handleChange("phosphorus", e.target.value)}
+                onBlur={() => handleBlur("phosphorus")}
+              />
+              {fieldError("phosphorus") && <span className="form-error">{fieldError("phosphorus")}</span>}
             </div>
 
             {/* Temperature (auto) */}
             <div className="form-group">
               <label className="form-label">Temperature (°C)</label>
-              <input className="form-input form-input--auto" type="text" readOnly
+              <input
+                className="form-input form-input--auto"
+                type="text"
+                readOnly
                 value={form.city ? `${getCityClimate(form.city)?.avg_temp ?? ""}°C` : ""}
-                placeholder="Auto-populated from city" />
+                placeholder="Auto-populated from city"
+              />
             </div>
           </div>
 
           {/* Tree Selection — full width */}
-          <div className={`form-group form-group--centered ${errors.tree ? "form-group--error" : ""}`}>
+          <div className={`form-group form-group--centered ${fieldError("tree") ? "form-group--error" : ""}`}>
             <label className="form-label">Tree to Plant <span className="form-required">*</span></label>
-            <select className="form-select form-select--tree" value={form.tree} onChange={(e) => update("tree", e.target.value)}>
+            <select
+              className="form-select form-select--tree"
+              value={form.tree}
+              onChange={(e) => handleChange("tree", e.target.value)}
+              onBlur={() => handleBlur("tree")}
+            >
               <option value="">Select tree to plant</option>
               {plantNames.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
-            {errors.tree && <span className="form-error">{errors.tree}</span>}
+            {fieldError("tree") && <span className="form-error">{fieldError("tree")}</span>}
           </div>
 
+          {/* Submit — disabled when form is invalid OR loading */}
           <button
             className="btn btn--primary btn--full btn--submit"
             onClick={handleSubmit}
-            disabled={loading}
+            disabled={loading || !isFormValid}
+            title={!isFormValid ? "Fill all fields with valid values to continue" : ""}
           >
             {loading ? (
               <>
@@ -209,6 +344,13 @@ export default function PredictPage({ onNavigate, onResults }) {
               "Get Tree Recommendations"
             )}
           </button>
+
+          {/* Subtle "form incomplete" hint shown before submit */}
+          {!isFormValid && !loading && (
+            <p className="form-incomplete-hint">
+              Fill in all fields with values in the allowed ranges to enable prediction.
+            </p>
+          )}
         </div>
 
         {/* Tips */}

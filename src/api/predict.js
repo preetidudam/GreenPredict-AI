@@ -1,90 +1,58 @@
 /**
- * API module — connects to the Python/Streamlit backend.
+ * API module — connects React to the Flask ML backend.
  *
- * In production, replace BASE_URL with your deployed backend URL.
- * The backend endpoint expects a POST to /predict with the payload below.
+ * Backend must be running:
+ *   python flask_api.py   ->  http://localhost:5000
  *
- * While the backend is not running locally, we use a LOCAL SIMULATION
- * that mirrors the Random Forest model's logic.
+ * Endpoint: POST /predict
+ * Payload : { pH, nitrogen, phosphorus, potassium, organic_carbon, ec,
+ *             rainfall, temperature, soil_type }
+ * Response: { predictions: { [plant]: probability }, ranked: [...] }
  */
 
-import { plantData, cities } from "../data/plants";
-
-const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8501";
+import { cities } from "../data/plants";
 
 // ---------------------------------------------------------------------------
-// Real backend call (use when Python server is running)
+// Config — override with REACT_APP_API_URL env var for production
 // ---------------------------------------------------------------------------
+const BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
+// ---------------------------------------------------------------------------
+// Real backend call — NO fallback, fails loudly if backend is unavailable
+// ---------------------------------------------------------------------------
+/**
+ * Sends soil + climate data to the Flask backend and returns ML predictions.
+ * Throws an Error if the backend is unreachable or returns an error response.
+ *
+ * @param {object} payload  - { pH, nitrogen, phosphorus, potassium,
+ *                              organic_carbon, ec, rainfall, temperature,
+ *                              soil_type }
+ * @returns {Promise<{ predictions: object, ranked: Array }>}
+ */
 export async function predictSurvival(payload) {
+  let response;
   try {
-    const response = await fetch(`${BASE_URL}/predict`, {
+    response = await fetch(`${BASE_URL}/predict`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    if (!response.ok) throw new Error("Backend unavailable");
-    return await response.json();
   } catch {
-    // Fallback to local simulation
-    return simulatePrediction(payload);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Local simulation — mirrors the Random Forest model logic
-// ---------------------------------------------------------------------------
-export function simulatePrediction(payload) {
-  const { pH, nitrogen, phosphorus, potassium, organic_carbon, ec, rainfall, temperature, soil_type } = payload;
-
-  const results = {};
-
-  for (const [plant, info] of Object.entries(plantData)) {
-    let score = 0;
-    let maxScore = 0;
-
-    // Rainfall match (most important feature)
-    maxScore += 30;
-    const rfMid = (info.minRainfall + info.maxRainfall) / 2;
-    const rfRange = info.maxRainfall - info.minRainfall;
-    const rfDist = Math.abs(rainfall - rfMid) / (rfRange / 2);
-    score += 30 * Math.max(0, 1 - rfDist * rfDist);
-
-    // Temperature match (second most important)
-    maxScore += 25;
-    const tMid = (info.minTemp + info.maxTemp) / 2;
-    const tRange = info.maxTemp - info.minTemp;
-    const tDist = Math.abs(temperature - tMid) / (tRange / 2);
-    score += 25 * Math.max(0, 1 - tDist * tDist);
-
-    // pH match
-    maxScore += 20;
-    const phMid = (info.minPH + info.maxPH) / 2;
-    const phRange = info.maxPH - info.minPH;
-    const phDist = Math.abs(pH - phMid) / (phRange / 2);
-    score += 20 * Math.max(0, 1 - phDist * phDist);
-
-    // Soil type match
-    maxScore += 15;
-    if (info.validSoils.includes(soil_type)) score += 15;
-
-    // Nutrient boost (minor)
-    maxScore += 10;
-    const nutrientScore = Math.min(1, (nitrogen / 400 + phosphorus / 30 + potassium / 200 + organic_carbon / 0.8) / 4);
-    score += 10 * nutrientScore;
-
-    // EC penalty
-    if (ec > 3) score -= 5;
-
-    const probability = Math.min(0.97, Math.max(0.02, score / maxScore));
-    results[plant] = Math.round(probability * 10000) / 100;
+    throw new Error(
+      "Cannot reach the prediction server. Make sure the Flask API is running: python flask_api.py"
+    );
   }
 
-  // Sort by probability descending
-  const sorted = Object.entries(results)
-    .sort((a, b) => b[1] - a[1])
-    .map(([plant, prob], index) => ({ plant, probability: prob, rank: index + 1 }));
+  const json = await response.json();
 
-  return { predictions: results, ranked: sorted };
+  if (!response.ok) {
+    // Relay the backend error message verbatim to the UI
+    throw new Error(
+      json.error || "Invalid input values. Please enter values within allowed range."
+    );
+  }
+
+  return json; // { predictions, ranked }
 }
 
 // ---------------------------------------------------------------------------

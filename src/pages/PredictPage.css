@@ -132,7 +132,31 @@
 .form-error {
   font-size: 0.78rem;
   color: #e53935;
+  margin-top: 1px;
 }
+
+/* Subtle range hint shown inline in label */
+.form-hint {
+  font-size: 0.77rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-left: 3px;
+}
+
+/* Shown below button when form is incomplete */
+.form-incomplete-hint {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.6rem;
+}
+
+/* Error focus ring */
+.form-group--error .form-input:focus,
+.form-group--error .form-select:focus {
+  box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.12);
+}
+
 
 .form-select--tree {
   max-width: 360px;
@@ -212,6 +236,21 @@
   font-size: 1rem;
   flex-shrink: 0;
   margin-top: 1px;
+}
+
+/* ─── API Error Banner ────────────────────────────── */
+.api-error-banner {
+  background: #fff3f3;
+  border: 1.5px solid #e53935;
+  border-radius: var(--radius-md);
+  color: #b71c1c;
+  font-size: 0.93rem;
+  line-height: 1.5;
+  padding: 0.9rem 1.2rem;
+  margin-bottom: 1.4rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 /* ─── Responsive ─────────────────────────────────── */
