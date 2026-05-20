@@ -42,6 +42,12 @@ export default function Navbar({ activePage, onNavigate }) {
           >
             Tree Encyclopedia
           </button>
+          <button
+            className={`navbar__link navbar__link--chat ${activePage === "chat" ? "navbar__link--active" : ""}`}
+            onClick={() => onNavigate("chat")}
+          >
+            Ask AI
+          </button>
         </div>
       </div>
     </nav>

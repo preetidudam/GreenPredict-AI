@@ -5,6 +5,7 @@ import HomePage from "./pages/HomePage";
 import PredictPage from "./pages/PredictPage";
 import ResultsPage from "./pages/ResultsPage";
 import EncyclopediaPage from "./pages/EncyclopediaPage";
+import ChatPage from "./pages/ChatPage";
 
 export default function App() {
   const [page, setPage] = useState("home");
@@ -22,6 +23,7 @@ export default function App() {
       {page === "predict"      && <PredictPage onNavigate={navigate} onResults={setResults} />}
       {page === "results"      && <ResultsPage results={results} onNavigate={navigate} />}
       {page === "encyclopedia" && <EncyclopediaPage />}
+      {page === "chat"         && <ChatPage />}
     </div>
   );
 }

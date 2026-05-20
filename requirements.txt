@@ -1,8 +1,27 @@
+# GreenPredict-AI — Python Dependencies
+# =======================================
+
+# Core ML / Data
 pandas
 numpy
 scikit-learn
 joblib
 matplotlib
-streamlit
+
+# Web Framework
 flask
 flask-cors
+
+# PDF RAG Pipeline
+langchain-community
+langchain-text-splitters
+pypdf
+
+# Gemini LLM (used by RAG chatbot)
+google-generativeai
+
+# Environment variables
+python-dotenv
+
+# Streamlit UI (standalone, optional)
+streamlit

@@ -85,6 +85,23 @@
   font-weight: 600;
 }
 
+/* Ask AI — subtle highlight */
+.navbar__link--chat {
+  background: var(--green-50);
+  border: 1.5px solid var(--border-color);
+  color: var(--green-700);
+  font-weight: 600;
+}
+.navbar__link--chat:hover {
+  background: var(--green-100);
+  border-color: var(--green-400);
+}
+.navbar__link--chat.navbar__link--active {
+  background: var(--green-700);
+  color: #fff;
+  border-color: var(--green-700);
+}
+
 @media (max-width: 600px) {
   .navbar__inner { padding: 0 1.1rem; }
   .navbar__brand-name { font-size: 0.95rem; }

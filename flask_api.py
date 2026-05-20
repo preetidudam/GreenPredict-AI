@@ -16,6 +16,23 @@ import pandas as pd
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
+import sys
+
+# RAG chatbot module lives in the RAG/ subfolder — loaded lazily at first /chat call
+_rag = None
+
+def get_rag():
+    global _rag
+    if _rag is None:
+        # Add RAG/ to path so `import rag_chat` resolves to RAG/rag_chat.py
+        rag_dir = os.path.join(os.path.dirname(__file__), "RAG")
+        if rag_dir not in sys.path:
+            sys.path.insert(0, rag_dir)
+        import rag_chat
+        _rag = rag_chat
+    return _rag
+
+
 # ---------------------------------------------------------------------------
 # App setup
 # ---------------------------------------------------------------------------
@@ -154,6 +171,39 @@ def predict():
 
 
 # ---------------------------------------------------------------------------
+# POST /chat  — RAG chatbot
+# ---------------------------------------------------------------------------
+@app.route("/chat", methods=["POST"])
+def chat():
+    data = request.get_json(force=True, silent=True)
+    if not data or not data.get("question", "").strip():
+        return jsonify({"error": "Please provide a question."}), 400
+
+    question = data["question"].strip()
+    if len(question) > 500:
+        return jsonify({"error": "Question is too long."}), 400
+
+    try:
+        rag = get_rag()
+        answer = rag.answer_question(question)
+        return jsonify({"answer": answer}), 200
+    except Exception as exc:
+        err_str = str(exc)
+        print(f"[CHAT ERROR] {type(exc).__name__}: {exc}")
+        if (
+            "429" in err_str
+            or "RESOURCE_EXHAUSTED" in err_str
+            or type(exc).__name__ == "RateLimitError"
+        ):
+            return jsonify({
+                "error": "The AI is busy right now. Please wait a moment and try again.",
+                "rate_limited": True,
+            }), 429
+        return jsonify({"error": "Unable to process your question. Please try again."}), 500
+
+
+
+# ---------------------------------------------------------------------------
 # Health check
 # ---------------------------------------------------------------------------
 @app.route("/health", methods=["GET"])
@@ -166,4 +216,4 @@ def health():
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     print("\n[GreenPredict-AI] Flask API starting on http://localhost:5000\n")
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)

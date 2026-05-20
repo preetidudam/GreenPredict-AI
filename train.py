@@ -5,25 +5,25 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix
 
-# 1️⃣ Load Dataset
+# Load Dataset
 df = pd.read_csv("data/plant_data.csv")
 
 print("Dataset Loaded Successfully!")
 print("Shape:", df.shape)
 
-# 2️⃣ Convert soil_type to numeric (One-Hot Encoding)
+# Convert soil_type to numeric (One-Hot Encoding)
 df = pd.get_dummies(df, columns=["soil_type"])
 
-# 3️⃣ Define Features (X) and Target (y)
+# Define Features (X) and Target (y)
 X = df.drop("plant", axis=1)
 y = df["plant"]
 
-# 4️⃣ Split Data
+# Split Data
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42
 )
 
-# 5️⃣ Train Random Forest Model
+# Train Random Forest Model
 model = RandomForestClassifier(
     n_estimators=300,
     max_depth=15,
@@ -32,7 +32,7 @@ model = RandomForestClassifier(
 )
 model.fit(X_train, y_train)
 
-# 6️⃣ Evaluate Model
+# Evaluate Model
 y_pred = model.predict(X_test)
 
 print("\nConfusion Matrix:")
@@ -44,7 +44,7 @@ print(classification_report(y_test, y_pred))
 accuracy = model.score(X_test, y_test)
 print("\nModel Accuracy:", accuracy)
 
-# 7️⃣ Save Model
+# Save Model
 joblib.dump(model, "model/random_forest.pkl")
 
 print("\nModel Saved Successfully inside model folder!")
