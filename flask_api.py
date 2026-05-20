@@ -33,15 +33,13 @@ def get_rag():
     return _rag
 
 
-# ---------------------------------------------------------------------------
 # App setup
-# ---------------------------------------------------------------------------
+
 app = Flask(__name__)
 CORS(app)  # Allow React dev server (localhost:3000) to call this API
 
-# ---------------------------------------------------------------------------
+
 # Load model once at startup (same file Streamlit uses)
-# ---------------------------------------------------------------------------
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "model", "random_forest.pkl")
 
 try:
@@ -52,9 +50,9 @@ try:
 except Exception as exc:
     raise RuntimeError(f"[ERROR] Could not load model from {MODEL_PATH}: {exc}") from exc
 
-# ---------------------------------------------------------------------------
+
 # Validation ranges (must match frontend)
-# ---------------------------------------------------------------------------
+
 VALID_RANGES = {
     "pH":             (0.0,  10.0),
     "nitrogen":       (0.0, 700.0),
@@ -72,9 +70,9 @@ REQUIRED_FIELDS = [
 
 VALID_SOIL_TYPES = {"Sandy", "Loamy", "Alluvial", "Lateritic", "Red loam"}
 
-# ---------------------------------------------------------------------------
+
 # Helper: validate incoming payload
-# ---------------------------------------------------------------------------
+
 # Human-readable field labels for error messages
 FIELD_LABELS = {
     "pH":             "pH",
@@ -118,9 +116,8 @@ def validate_payload(data: dict):
     return True, None
 
 
-# ---------------------------------------------------------------------------
 # POST /predict
-# ---------------------------------------------------------------------------
+
 @app.route("/predict", methods=["POST"])
 def predict():
     data = request.get_json(force=True, silent=True)
@@ -170,9 +167,7 @@ def predict():
     }), 200
 
 
-# ---------------------------------------------------------------------------
 # POST /chat  — RAG chatbot
-# ---------------------------------------------------------------------------
 @app.route("/chat", methods=["POST"])
 def chat():
     data = request.get_json(force=True, silent=True)
@@ -203,17 +198,15 @@ def chat():
 
 
 
-# ---------------------------------------------------------------------------
 # Health check
-# ---------------------------------------------------------------------------
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "model": "random_forest.pkl"}), 200
 
 
-# ---------------------------------------------------------------------------
+
 # Entry point
-# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     print("\n[GreenPredict-AI] Flask API starting on http://localhost:5000\n")
     app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)

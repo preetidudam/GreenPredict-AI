@@ -1,18 +1,3 @@
-"""
-RAG/rag_chat.py -- RAG pipeline for GreenPredict-AI chatbot
-===========================================================
-Pipeline (follows DBMS Assignment-9 exactly):
-  PDF -> Chunks -> TF-IDF embeddings -> Cosine similarity retrieval -> Gemini LLM
-
-Uses Google Gemini (gemini-2.0-flash) -- free tier at aistudio.google.com
-Answers ONLY from Project.pdf -- no external/hallucinated knowledge.
-
-Setup:
-  1. Get a free API key at https://aistudio.google.com/app/apikey
-  2. Add to RAG/.env:
-       GEMINI_API_KEY=your_key_here
-"""
-
 import os
 from pathlib import Path
 
@@ -117,7 +102,7 @@ def answer_question(question: str, top_k: int = 5) -> str:
             model="gemini-2.5-flash",
             contents=prompt,
         )
-        return response.text.strip()
+        return (response.text or "I couldn't generate an answer. Please try again.").strip()
 
     except Exception as exc:
         err_str = str(exc)

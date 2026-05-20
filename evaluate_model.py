@@ -1,12 +1,3 @@
-"""
-evaluate_model.py — GreenPredict-AI
-====================================
-Run this script to check the accuracy of the trained Random Forest model.
-
-Usage:
-    python evaluate_model.py
-"""
-
 import joblib
 import pandas as pd
 from sklearn.model_selection import train_test_split
